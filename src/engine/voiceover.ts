@@ -14,9 +14,30 @@ export interface VoiceoverAsset {
   timestamps: WordTimestamp[];
 }
 
+const DEFAULT_ELEVENLABS_VOICE_IDS: Record<string, string> = {
+  Adam_Docu_Baritone: 'pNInz6obpgDQGcFmaJgB', // Adam
+  Rachel_Warm_Storyteller: '21m00Tcm4TlvDq8ikWAM', // Rachel
+  Josh_Upbeat_Tech: 'TxGEqnHWrfWFTfGW9XjX', // Josh
+  Marcus_Corporate_Narrator: 'VR6AewLTigWG4xSOukaG', // Marcus
+  Orion_Space_Narrator: 'onwK4e9ZLuTAKqWW03F9', // Daniel
+  Tactical_Baritone_Command: 'pNInz6obpgDQGcFmaJgB',
+  Gritt_Survival_Voice: 'ErXwobaYiN019PkySvjV', // Antoni
+  Nova_Science_Voice: 'EXAVITQu4vr4xnSDxMaL', // Bella
+};
+
+function resolveElevenLabsVoiceId(inputVoiceId: string): string {
+  if (DEFAULT_ELEVENLABS_VOICE_IDS[inputVoiceId]) {
+    return DEFAULT_ELEVENLABS_VOICE_IDS[inputVoiceId];
+  }
+  if (inputVoiceId && inputVoiceId.length === 20 && !inputVoiceId.includes('_')) {
+    return inputVoiceId;
+  }
+  return 'pNInz6obpgDQGcFmaJgB'; // Default Adam voice
+}
+
 export async function generateVoiceover(
   scriptText: string,
-  voiceId: string,
+  rawVoiceId: string,
   jobId: string
 ): Promise<VoiceoverAsset> {
   const outputDir = path.join(process.cwd(), 'data', 'assets', jobId, 'audio');
@@ -25,11 +46,15 @@ export async function generateVoiceover(
   }
 
   const audioPath = path.join(outputDir, 'narration.mp3');
+  const voiceId = resolveElevenLabsVoiceId(rawVoiceId);
 
   // Check if ElevenLabs API key is present
-  if (ENV.ELEVENLABS_API_KEY) {
+  if (ENV.ELEVENLABS_API_KEY && ENV.ELEVENLABS_API_KEY !== 'your_elevenlabs_api_key_here') {
     try {
-      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/with-timestamps`, {
+      console.log(`🎙️ Calling ElevenLabs API (Voice ID: ${voiceId})...`);
+      
+      // Try with timestamps endpoint first
+      let response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/with-timestamps`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,16 +92,53 @@ export async function generateVoiceover(
         })).filter((item: WordTimestamp) => item.word.length > 0);
 
         const durationSeconds = timestamps.length > 0 ? timestamps[timestamps.length - 1].end : 45;
-        console.log(`🎙️ ElevenLabs Voiceover generated (${timestamps.length} words, ${durationSeconds.toFixed(1)}s)`);
+        console.log(`✅ ElevenLabs Voiceover generated (${timestamps.length} words, ${durationSeconds.toFixed(1)}s audio)`);
 
         return { audioPath, durationSeconds, timestamps };
       }
+
+      // Fallback to standard TTS endpoint if with-timestamps API returns 404/400
+      console.log(`⚠️ ElevenLabs with-timestamps status ${response.status}, trying standard TTS endpoint...`);
+      response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'xi-api-key': ENV.ELEVENLABS_API_KEY,
+        },
+        body: JSON.stringify({
+          text: scriptText,
+          model_id: 'eleven_multilingual_v2',
+        }),
+      });
+
+      if (response.ok) {
+        const audioBuffer = Buffer.from(await response.arrayBuffer());
+        fs.writeFileSync(audioPath, audioBuffer);
+
+        const words = scriptText.split(/\s+/).filter(w => w.length > 0);
+        const wordsPerSecond = 2.8;
+        let currentTime = 0.2;
+
+        const timestamps: WordTimestamp[] = words.map(word => {
+          const wordDuration = Math.max(0.2, (word.length / 5) * (1 / wordsPerSecond));
+          const start = currentTime;
+          const end = currentTime + wordDuration;
+          currentTime = end + 0.08;
+          return { word, start, end };
+        });
+
+        console.log(`✅ ElevenLabs Voiceover MP3 generated!`);
+        return { audioPath, durationSeconds: currentTime, timestamps };
+      } else {
+        const errText = await response.text();
+        console.warn(`⚠️ ElevenLabs API error ${response.status}: ${errText}`);
+      }
     } catch (e: any) {
-      console.warn(`⚠️ ElevenLabs API failed, using fallback synthesizer: ${e.message}`);
+      console.warn(`⚠️ ElevenLabs API failed: ${e.message}`);
     }
   }
 
-  // Fallback voiceover synthesizer for testing / offline mode
+  // Fallback mode for local testing without ElevenLabs API key
   console.log(`🎙️ Generating estimated word timestamps for local audio test...`);
   const words = scriptText.split(/\s+/).filter(w => w.length > 0);
   const wordsPerSecond = 2.8;
@@ -90,13 +152,9 @@ export async function generateVoiceover(
     return { word, start, end };
   });
 
-  const durationSeconds = currentTime;
-  // Write a silent / simple MP3 stub if audio file doesn't exist
-  fs.writeFileSync(audioPath, Buffer.alloc(1024));
-
   return {
-    audioPath,
-    durationSeconds,
+    audioPath: '', // Return empty audioPath when live TTS is not configured
+    durationSeconds: currentTime,
     timestamps,
   };
 }

@@ -14,7 +14,19 @@ export async function getRemotionBundle(): Promise<string> {
   console.log(`📦 Bundling Remotion composition from: ${entryPoint}...`);
   cachedBundleLocation = await bundle({
     entryPoint,
-    webpackOverride: (config) => config,
+    webpackOverride: (config) => {
+      return {
+        ...config,
+        resolve: {
+          ...config.resolve,
+          extensions: ['.tsx', '.ts', '.jsx', '.js', ...(config.resolve?.extensions || [])],
+          extensionAlias: {
+            '.js': ['.tsx', '.ts', '.js'],
+            '.jsx': ['.tsx', '.jsx'],
+          },
+        },
+      };
+    },
   });
   console.log(`✅ Remotion bundle created at: ${cachedBundleLocation}`);
   return cachedBundleLocation;

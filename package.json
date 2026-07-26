@@ -8,6 +8,7 @@
     "build": "tsc",
     "db:init": "npm run build && node dist/db/init.js",
     "start": "npm run build && node dist/server.js",
+    "test:smoke": "npm run build && node dist/scripts/smokeTest.js",
     "remotion:studio": "remotion studio src/remotion/index.ts"
   },
   "dependencies": {

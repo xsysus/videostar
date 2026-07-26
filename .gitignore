@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Build Output
+dist/
+
+# Persistent local data, assets, and rendered videos
+data/
+
+# Local Environment Variables
+.env
+.env.local
+
+# Remotion & System Cache
+.remotion/
+.DS_Store
+*.log

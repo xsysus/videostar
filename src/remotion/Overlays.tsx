@@ -56,14 +56,14 @@ export const NicheBadge: React.FC<{ text: string; bgColor?: string }> = ({
   );
 };
 
-export const AudioEngine: React.FC<{ voiceoverUrl: string; bgmUrl?: string }> = ({
+export const AudioEngine: React.FC<{ voiceoverUrl?: string; bgmUrl?: string }> = ({
   voiceoverUrl,
   bgmUrl,
 }) => {
   return (
     <>
-      <Audio src={voiceoverUrl} volume={1.0} />
-      {bgmUrl && <Audio src={bgmUrl} volume={0.15} loop />}
+      {voiceoverUrl && voiceoverUrl.trim().length > 10 && <Audio src={voiceoverUrl} volume={1.0} />}
+      {bgmUrl && bgmUrl.trim().length > 10 && <Audio src={bgmUrl} volume={0.15} loop />}
     </>
   );
 };

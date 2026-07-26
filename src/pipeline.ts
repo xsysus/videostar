@@ -8,6 +8,30 @@ import { generateSeoMetadata } from './engine/seoGenerator.js';
 import { generateThumbnail } from './engine/thumbnailGenerator.js';
 import { uploadVideoToYoutube } from './publisher/youtube.js';
 import { RemotionShortProps } from './remotion/MainShortComposition.js';
+import { pathToFileURL } from 'url';
+import path from 'path';
+import fs from 'fs';
+
+function toMediaUrl(filePath: string): string {
+  if (!filePath) return '';
+  if (filePath.startsWith('http://') || filePath.startsWith('https://') || filePath.startsWith('data:') || filePath.startsWith('file://')) {
+    return filePath;
+  }
+  if (fs.existsSync(filePath)) {
+    const content = fs.readFileSync(filePath);
+    const contentStr = content.toString('utf-8', 0, 100).trim();
+    if (contentStr.startsWith('<svg') || contentStr.startsWith('<?xml')) {
+      return `data:image/svg+xml;base64,${content.toString('base64')}`;
+    }
+    const ext = path.extname(filePath).toLowerCase();
+    if (ext === '.png') return `data:image/png;base64,${content.toString('base64')}`;
+    if (ext === '.svg') return `data:image/svg+xml;base64,${content.toString('base64')}`;
+    if (ext === '.jpg' || ext === '.jpeg') return `data:image/jpeg;base64,${content.toString('base64')}`;
+    if (ext === '.mp3') return `data:audio/mp3;base64,${content.toString('base64')}`;
+    return pathToFileURL(path.resolve(filePath)).href;
+  }
+  return filePath;
+}
 
 export async function processVideoJob(jobId: string): Promise<void> {
   const db = getDatabase();
@@ -63,9 +87,9 @@ export async function processVideoJob(jobId: string): Promise<void> {
 
   const remotionProps: RemotionShortProps = {
     theme: nicheConfig.theme,
-    voiceoverUrl: voiceoverAsset.audioPath,
+    voiceoverUrl: toMediaUrl(voiceoverAsset.audioPath),
     scenes: sceneAssets.map(a => ({
-      imageUrl: a.imagePath,
+      imageUrl: toMediaUrl(a.imagePath),
       durationInFrames: a.durationInFrames,
       zoomDirection: a.zoomDirection,
     })),

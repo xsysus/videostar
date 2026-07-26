@@ -1,5 +1,5 @@
 import React from 'react';
-import { AbsoluteFill, Composition, Sequence } from 'remotion';
+import { AbsoluteFill, Sequence } from 'remotion';
 import { KenBurnsImage } from './KenBurnsImage.js';
 import { DynamicCaptions, WordTimestamp } from './DynamicCaptions.js';
 import { AudioEngine, NicheBadge, VideoProgressBar } from './Overlays.js';
