@@ -2,6 +2,7 @@ import { bundle } from '@remotion/bundler';
 import { renderMedia, selectComposition } from '@remotion/renderer';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { RemotionShortProps } from '../remotion/MainShortComposition.js';
 
 let cachedBundleLocation: string | null = null;
@@ -53,6 +54,9 @@ export async function renderShortVideo(
 
   console.log(`🚀 Rendering 1080x1920 Short MP4 (${totalDurationInFrames} frames) for job ${jobId}...`);
 
+  const availableCores = os.cpus().length || 2;
+  const optimalConcurrency = Math.max(1, Math.min(4, availableCores));
+
   await renderMedia({
     composition: {
       ...composition,
@@ -62,7 +66,7 @@ export async function renderShortVideo(
     codec: 'h264',
     outputLocation: outputPath,
     inputProps: inputProps as any,
-    concurrency: 4,
+    concurrency: optimalConcurrency,
   });
 
   console.log(`🎉 Video render complete -> ${outputPath}`);

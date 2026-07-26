@@ -14,13 +14,14 @@ export interface VoiceoverAsset {
   timestamps: WordTimestamp[];
 }
 
+// Default ElevenLabs pre-made voices supported across all accounts (including free tier)
 const DEFAULT_ELEVENLABS_VOICE_IDS: Record<string, string> = {
   Adam_Docu_Baritone: 'pNInz6obpgDQGcFmaJgB', // Adam
   Rachel_Warm_Storyteller: '21m00Tcm4TlvDq8ikWAM', // Rachel
-  Josh_Upbeat_Tech: 'TxGEqnHWrfWFTfGW9XjX', // Josh
-  Marcus_Corporate_Narrator: 'VR6AewLTigWG4xSOukaG', // Marcus
-  Orion_Space_Narrator: 'onwK4e9ZLuTAKqWW03F9', // Daniel
-  Tactical_Baritone_Command: 'pNInz6obpgDQGcFmaJgB',
+  Josh_Upbeat_Tech: 'pNInz6obpgDQGcFmaJgB', // Adam
+  Marcus_Corporate_Narrator: 'ErXwobaYiN019PkySvjV', // Antoni
+  Orion_Space_Narrator: 'AZnzlk1XvdvUeBnXmlld', // Domi
+  Tactical_Baritone_Command: 'pNInz6obpgDQGcFmaJgB', // Adam
   Gritt_Survival_Voice: 'ErXwobaYiN019PkySvjV', // Antoni
   Nova_Science_Voice: 'EXAVITQu4vr4xnSDxMaL', // Bella
 };
@@ -97,7 +98,7 @@ export async function generateVoiceover(
         return { audioPath, durationSeconds, timestamps };
       }
 
-      // Fallback to standard TTS endpoint if with-timestamps API returns 404/400
+      // Fallback to standard TTS endpoint if with-timestamps API returns 404/400/402
       console.log(`⚠️ ElevenLabs with-timestamps status ${response.status}, trying standard TTS endpoint...`);
       response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
         method: 'POST',
