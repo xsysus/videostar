@@ -1,6 +1,7 @@
-import { getGenAIClient, GENAI_MODELS } from '../config/genai.js';
+import { getGenAIClient } from '../config/genai.js';
 import { ENV } from '../config/env.js';
 import { StoryboardScene } from './storyboard.js';
+import { WordTimestamp } from './voiceover.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -29,7 +30,8 @@ function extractSceneKeywords(prompt: string, narration: string): string[] {
 export async function generateSceneImages(
   scenes: StoryboardScene[],
   jobId: string,
-  fps = 30
+  fps = 30,
+  wordTimestamps: WordTimestamp[] = []
 ): Promise<GeneratedSceneAsset[]> {
   const outputDir = path.join(process.cwd(), 'data', 'assets', jobId, 'images');
   if (!fs.existsSync(outputDir)) {
@@ -37,11 +39,30 @@ export async function generateSceneImages(
   }
 
   const assets: GeneratedSceneAsset[] = [];
+  let currentTimestampIdx = 0;
+  const totalAudioDuration = wordTimestamps.length > 0 ? wordTimestamps[wordTimestamps.length - 1].end : 0;
 
-  for (const scene of scenes) {
+  for (let i = 0; i < scenes.length; i++) {
+    const scene = scenes[i];
+    const isLastScene = i === scenes.length - 1;
     const filePath = path.join(outputDir, `scene_${scene.scene_number}.png`);
-    const durationInFrames = Math.round((scene.duration_seconds || 4) * fps);
 
+    let sceneDurationSeconds = scene.duration_seconds || 4;
+
+    if (wordTimestamps.length > 0) {
+      const sceneWords = scene.narration_segment.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 0);
+      const startWordIdx = currentTimestampIdx;
+      currentTimestampIdx = Math.min(wordTimestamps.length - 1, currentTimestampIdx + sceneWords.length);
+
+      const startTime = wordTimestamps[startWordIdx]?.start || 0;
+      const endTime = isLastScene
+        ? totalAudioDuration
+        : (wordTimestamps[currentTimestampIdx]?.start || startTime + 4);
+
+      sceneDurationSeconds = Math.max(1.5, endTime - startTime);
+    }
+
+    const durationInFrames = Math.round(sceneDurationSeconds * fps);
     let generated = false;
 
     // 1. Primary: Try Imagen 3 AI Image Generator
@@ -63,7 +84,7 @@ export async function generateSceneImages(
           const imageBytes = response.generatedImages[0].image.imageBytes;
           const buffer = Buffer.from(imageBytes, 'base64');
           fs.writeFileSync(filePath, buffer);
-          console.log(`🖼️ Imagen 3 generated Scene ${scene.scene_number} (${modelName}) -> ${filePath}`);
+          console.log(`🖼️ Imagen 3 generated Scene ${scene.scene_number} (${modelName}, ${durationInFrames} frames) -> ${filePath}`);
           generated = true;
           break;
         }
@@ -75,7 +96,7 @@ export async function generateSceneImages(
     // 2. Secondary: Content-Matched Stock Photo Search (Pexels / Unsplash / Zero-Config Keyword Endpoint)
     if (!generated) {
       const keywords = extractSceneKeywords(scene.imagen_prompt, scene.narration_segment);
-      console.log(`🔍 Seeking content-matched visual for Scene ${scene.scene_number} [Keywords: ${keywords.join(', ')}]...`);
+      console.log(`🔍 Seeking content-matched visual for Scene ${scene.scene_number} (${durationInFrames} frames) [Keywords: ${keywords.join(', ')}]...`);
       generated = await fetchContentMatchedImage(keywords, scene.scene_number, filePath);
     }
 

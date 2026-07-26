@@ -68,12 +68,9 @@ export async function processVideoJob(jobId: string): Promise<void> {
     jobId
   );
 
-  // 2. Parallel Asset Generation (Imagen 3 Visuals + TTS Voiceover)
-  console.log(`\n🎨 Step 2: Generating Scene Images & Voiceover Audio...`);
-  const [sceneAssets, voiceoverAsset] = await Promise.all([
-    generateSceneImages(storyboard.scenes, jobId),
-    generateVoiceover(storyboard.full_narration, nicheConfig.voicePreset.voiceId, jobId),
-  ]);
+  // 2. Asset Generation (TTS Voiceover First -> Word Timestamps -> Visual Scene Generator)
+  console.log(`\n🎨 Step 2: Generating Voiceover Audio & Word-Synced Scene Visuals...`);
+  const voiceoverAsset = await generateVoiceover(storyboard.full_narration, nicheConfig.voicePreset.voiceId, jobId);
 
   db.prepare("UPDATE video_jobs SET audio_url = ?, word_timestamps_json = ? WHERE id = ?").run(
     voiceoverAsset.audioPath,
@@ -81,8 +78,21 @@ export async function processVideoJob(jobId: string): Promise<void> {
     jobId
   );
 
+  const sceneAssets = await generateSceneImages(storyboard.scenes, jobId, 30, voiceoverAsset.timestamps);
+
+  // Calculate total frames dynamically based on exact voiceover length + 0.5s end padding (15 frames)
+  const audioFramesNeeded = Math.ceil((voiceoverAsset.durationSeconds + 0.5) * 30);
+  const visualFramesSum = sceneAssets.reduce((sum, a) => sum + a.durationInFrames, 0);
+
+  const totalFrames = Math.max(audioFramesNeeded, visualFramesSum);
+
+  // If visual frames sum is less than totalFrames, extend the last scene to cover the end padding
+  if (visualFramesSum < totalFrames && sceneAssets.length > 0) {
+    sceneAssets[sceneAssets.length - 1].durationInFrames += (totalFrames - visualFramesSum);
+  }
+
   // 3. Remotion Video Rendering Engine
-  console.log(`\n🎞️ Step 3: Assembling & Rendering Remotion Short MP4...`);
+  console.log(`\n🎞️ Step 3: Assembling & Rendering Remotion Short MP4 (${totalFrames} frames / ${(totalFrames / 30).toFixed(1)}s)...`);
   db.prepare("UPDATE video_jobs SET status = 'RENDERING' WHERE id = ?").run(jobId);
 
   const remotionProps: RemotionShortProps = {
@@ -96,7 +106,6 @@ export async function processVideoJob(jobId: string): Promise<void> {
     words: voiceoverAsset.timestamps,
   };
 
-  const totalFrames = sceneAssets.reduce((sum, a) => sum + a.durationInFrames, 0);
   const renderedVideoPath = await renderShortVideo(remotionProps, jobId, totalFrames);
 
   db.prepare("UPDATE video_jobs SET rendered_video_path = ? WHERE id = ?").run(renderedVideoPath, jobId);
