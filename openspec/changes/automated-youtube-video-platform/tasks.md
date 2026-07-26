@@ -6,9 +6,9 @@
 - [x] 1.3 Create Niche Configuration system supporting all 8 target niches, color themes, fonts, and voice presets.
 
 ## Phase 2: Trend & Topic Finder Engine
-- [ ] 2.1 Implement AsyncPRAW Reddit scraper for niche subreddits (todayilearned, technology, space, psychology, etc.).
-- [ ] 2.2 Implement Gemini Virality Scorer & Deduplication check.
-- [ ] 2.3 Build lightweight Next.js / Tailwind Approval Dashboard with 1-click Approve, Reject, and Custom Topic input.
+- [x] 2.1 Implement AsyncPRAW Reddit scraper for niche subreddits (todayilearned, technology, space, psychology, etc.).
+- [x] 2.2 Implement Gemini Virality Scorer & Deduplication check.
+- [x] 2.3 Build lightweight Next.js / Tailwind Approval Dashboard with 1-click Approve, Reject, and Custom Topic input.
 
 ## Phase 3: Scriptwriter & Asset Generation Pipeline
 - [ ] 3.1 Implement Gemini 1.5 Pro Storyboard Generator returning structured JSON script, scene breakdown, and 9:16 Imagen 3 prompts.
