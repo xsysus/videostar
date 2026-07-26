@@ -1,9 +1,9 @@
 # Tasks: Automated YouTube Video Creation Platform
 
 ## Phase 1: Core Foundation & Data Layer
-- [ ] 1.1 Initialize project workspace with database schemas (SQLite / PostgreSQL) for topics, video_jobs, and youtube_channels.
-- [ ] 1.2 Setup Google GenAI SDK configuration with Gemini 1.5/2.0 Flash/Pro and Imagen 3 API keys.
-- [ ] 1.3 Create Niche Configuration system supporting all 8 target niches, color themes, fonts, and voice presets.
+- [x] 1.1 Initialize project workspace with database schemas (SQLite / PostgreSQL) for topics, video_jobs, and youtube_channels.
+- [x] 1.2 Setup Google GenAI SDK configuration with Gemini 1.5/2.0 Flash/Pro and Imagen 3 API keys.
+- [x] 1.3 Create Niche Configuration system supporting all 8 target niches, color themes, fonts, and voice presets.
 
 ## Phase 2: Trend & Topic Finder Engine
 - [ ] 2.1 Implement AsyncPRAW Reddit scraper for niche subreddits (todayilearned, technology, space, psychology, etc.).

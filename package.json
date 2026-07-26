@@ -1,0 +1,22 @@
+{
+  "name": "videostar",
+  "version": "0.1.0",
+  "description": "Automated YouTube Video Creation Platform",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "db:init": "ts-node src/db/init.ts",
+    "start": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^0.1.1",
+    "dotenv": "^16.4.5",
+    "better-sqlite3": "^11.1.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20.14.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.3"
+  }
+}
