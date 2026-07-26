@@ -11,10 +11,10 @@
 - [x] 2.3 Build lightweight Next.js / Tailwind Approval Dashboard with 1-click Approve, Reject, and Custom Topic input.
 
 ## Phase 3: Scriptwriter & Asset Generation Pipeline
-- [ ] 3.1 Implement Gemini 1.5 Pro Storyboard Generator returning structured JSON script, scene breakdown, and 9:16 Imagen 3 prompts.
-- [ ] 3.2 Implement Imagen 3 parallel image generation worker saving 9:16 PNGs to asset storage.
-- [ ] 3.3 Implement TTS Voiceover integration (ElevenLabs / OpenAI Audio) returning MP3 voiceover and word-level timestamps JSON.
-- [ ] 3.4 Support multilingual script translation and voice persona selection per niche.
+- [x] 3.1 Implement Gemini 1.5 Pro Storyboard Generator returning structured JSON script, scene breakdown, and 9:16 Imagen 3 prompts.
+- [x] 3.2 Implement Imagen 3 parallel image generation worker saving 9:16 PNGs to asset storage.
+- [x] 3.3 Implement TTS Voiceover integration (ElevenLabs / OpenAI Audio) returning MP3 voiceover and word-level timestamps JSON.
+- [x] 3.4 Support multilingual script translation and voice persona selection per niche.
 
 ## Phase 4: Remotion Video Rendering Engine
 - [ ] 4.1 Create Remotion project setup with 1080x1920 9:16 composition.
