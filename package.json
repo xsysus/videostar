@@ -6,16 +6,24 @@
   "scripts": {
     "build": "tsc",
     "db:init": "ts-node src/db/init.ts",
-    "start": "ts-node src/index.ts"
+    "start": "ts-node src/server.ts",
+    "remotion:studio": "remotion studio src/remotion/index.ts"
   },
   "dependencies": {
     "@google/genai": "^0.1.1",
+    "@remotion/cli": "^4.0.180",
+    "@remotion/renderer": "^4.0.180",
+    "better-sqlite3": "^11.1.2",
     "dotenv": "^16.4.5",
-    "better-sqlite3": "^11.1.2"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.180"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^20.14.10",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.3"
   }

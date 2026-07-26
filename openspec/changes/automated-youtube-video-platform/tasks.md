@@ -17,11 +17,11 @@
 - [x] 3.4 Support multilingual script translation and voice persona selection per niche.
 
 ## Phase 4: Remotion Video Rendering Engine
-- [ ] 4.1 Create Remotion project setup with 1080x1920 9:16 composition.
-- [ ] 4.2 Build `KenBurnsImage` component with smooth `interpolate` pan/zoom animations.
-- [ ] 4.3 Build `DynamicCaptions` kinetic pop-up word component with `spring` physics and custom font styling.
-- [ ] 4.4 Build `VideoProgressBar`, `NicheBadge`, and `AudioEngine` (auto-ducking BGM + Whoosh SFX).
-- [ ] 4.5 Implement Node.js `@remotion/renderer` build script to render 1080p MP4 from input JSON props.
+- [x] 4.1 Create Remotion project setup with 1080x1920 9:16 composition.
+- [x] 4.2 Build `KenBurnsImage` component with smooth `interpolate` pan/zoom animations.
+- [x] 4.3 Build `DynamicCaptions` kinetic pop-up word component with `spring` physics and custom font styling.
+- [x] 4.4 Build `VideoProgressBar`, `NicheBadge`, and `AudioEngine` (auto-ducking BGM + Whoosh SFX).
+- [x] 4.5 Implement Node.js `@remotion/renderer` build script to render 1080p MP4 from input JSON props.
 
 ## Phase 5: YouTube Publishing & SEO Automation
 - [ ] 5.1 Implement Gemini SEO Metadata Generator (Titles, Descriptions, Tags).
