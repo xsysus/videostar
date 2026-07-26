@@ -49,6 +49,11 @@ export function startServer() {
           INSERT INTO video_jobs (id, topic_id, niche, status)
           VALUES (?, ?, ?, 'QUEUED')
         `).run(jobId, topicId, topic.niche);
+
+        // Trigger production pipeline in background
+        import('./pipeline.js').then(m => m.processVideoJob(jobId)).catch(err => {
+          console.error(`❌ Background video job ${jobId} failed:`, err);
+        });
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });

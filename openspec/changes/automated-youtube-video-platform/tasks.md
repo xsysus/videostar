@@ -24,7 +24,7 @@
 - [x] 4.5 Implement Node.js `@remotion/renderer` build script to render 1080p MP4 from input JSON props.
 
 ## Phase 5: YouTube Publishing & SEO Automation
-- [ ] 5.1 Implement Gemini SEO Metadata Generator (Titles, Descriptions, Tags).
-- [ ] 5.2 Implement AI Thumbnail Engine combining Imagen 3 hero image with bold Remotion text overlay.
-- [ ] 5.3 Integrate YouTube Data API v3 OAuth 2.0 client for automated chunked video uploading and scheduling.
-- [ ] 5.4 Perform end-to-end integration test from Topic Approval to Scheduled YouTube Video.
+- [x] 5.1 Implement Gemini SEO Metadata Generator (Titles, Descriptions, Tags).
+- [x] 5.2 Implement AI Thumbnail Engine combining Imagen 3 hero image with bold Remotion text overlay.
+- [x] 5.3 Integrate YouTube Data API v3 OAuth 2.0 client for automated chunked video uploading and scheduling.
+- [x] 5.4 Perform end-to-end integration test from Topic Approval to Scheduled YouTube Video.
