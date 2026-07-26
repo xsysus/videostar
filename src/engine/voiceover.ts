@@ -39,7 +39,8 @@ function resolveElevenLabsVoiceId(inputVoiceId: string): string {
 export async function generateVoiceover(
   scriptText: string,
   rawVoiceId: string,
-  jobId: string
+  jobId: string,
+  forceRefresh = false
 ): Promise<VoiceoverAsset> {
   const outputDir = path.join(process.cwd(), 'data', 'assets', jobId, 'audio');
   if (!fs.existsSync(outputDir)) {
@@ -47,6 +48,21 @@ export async function generateVoiceover(
   }
 
   const audioPath = path.join(outputDir, 'narration.mp3');
+  const timestampsPath = path.join(outputDir, 'timestamps.json');
+
+  // Check disk cache first unless forceRefresh is true
+  if (!forceRefresh && fs.existsSync(audioPath) && fs.existsSync(timestampsPath)) {
+    try {
+      const rawTimestamps = fs.readFileSync(timestampsPath, 'utf-8');
+      const timestamps: WordTimestamp[] = JSON.parse(rawTimestamps);
+      const durationSeconds = timestamps.length > 0 ? timestamps[timestamps.length - 1].end : 45;
+      console.log(`♻️ Reusing cached TTS voiceover audio & timestamps for job ${jobId} (${durationSeconds.toFixed(1)}s audio)`);
+      return { audioPath, durationSeconds, timestamps };
+    } catch (e) {
+      console.warn(`⚠️ Failed to parse cached timestamps, re-generating voiceover...`);
+    }
+  }
+
   const voiceId = resolveElevenLabsVoiceId(rawVoiceId);
 
   // Check if ElevenLabs API key is present
@@ -92,6 +108,8 @@ export async function generateVoiceover(
           end: item.end,
         })).filter((item: WordTimestamp) => item.word.length > 0);
 
+        fs.writeFileSync(timestampsPath, JSON.stringify(timestamps, null, 2));
+
         const durationSeconds = timestamps.length > 0 ? timestamps[timestamps.length - 1].end : 45;
         console.log(`✅ ElevenLabs Voiceover generated (${timestamps.length} words, ${durationSeconds.toFixed(1)}s audio)`);
 
@@ -128,6 +146,8 @@ export async function generateVoiceover(
           return { word, start, end };
         });
 
+        fs.writeFileSync(timestampsPath, JSON.stringify(timestamps, null, 2));
+
         console.log(`✅ ElevenLabs Voiceover MP3 generated!`);
         return { audioPath, durationSeconds: currentTime, timestamps };
       } else {
@@ -149,12 +169,14 @@ export async function generateVoiceover(
     const wordDuration = Math.max(0.2, (word.length / 5) * (1 / wordsPerSecond));
     const start = currentTime;
     const end = currentTime + wordDuration;
-    currentTime = end + 0.08; // subtle gap between words
+    currentTime = end + 0.08;
     return { word, start, end };
   });
 
+  fs.writeFileSync(timestampsPath, JSON.stringify(timestamps, null, 2));
+
   return {
-    audioPath: '', // Return empty audioPath when live TTS is not configured
+    audioPath: fs.existsSync(audioPath) ? audioPath : '',
     durationSeconds: currentTime,
     timestamps,
   };

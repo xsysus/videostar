@@ -1,7 +1,7 @@
 import { getGenAIClient } from '../config/genai.js';
-import { ENV } from '../config/env.js';
 import { StoryboardScene } from './storyboard.js';
 import { WordTimestamp } from './voiceover.js';
+import { ENV } from '../config/env.js';
 import path from 'path';
 import fs from 'fs';
 
@@ -12,26 +12,40 @@ export interface GeneratedSceneAsset {
   zoomDirection: 'in' | 'out';
 }
 
-function extractSceneKeywords(prompt: string, narration: string): string[] {
-  const combined = `${prompt} ${narration}`.toLowerCase();
+/**
+ * Extract 3-5 high-relevance search keywords from scene narration and visual prompt.
+ */
+export function extractSceneKeywords(prompt: string, narration: string): string[] {
   const stopWords = new Set([
-    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
-    'from', 'up', 'about', 'into', 'over', 'after', 'did', 'you', 'know', 'that', 'this',
-    'how', 'why', 'was', 'were', 'is', 'are', 'been', 'being', 'have', 'has', 'had', 'shot',
-    'vertical', 'aspect', 'ratio', 'cinematic', 'resolution', 'photorealistic', 'frame', '8k'
+    'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
+    'by', 'from', 'up', 'about', 'into', 'over', 'after', 'is', 'are', 'was', 'were',
+    'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'shot', 'frame',
+    'vertical', '9:16', 'cinematic', 'resolution', 'photorealistic', 'dramatic', 'lighting',
+    'golden', 'hour', 'close-up', 'wide', 'angle', 'view', '8k', 'high', 'quality',
   ]);
 
-  const words = combined.replace(/[^a-z0-9\s]/g, '').split(/\s+/);
-  const filtered = words.filter(w => w.length > 3 && !stopWords.has(w));
-  const unique = Array.from(new Set(filtered));
-  return unique.slice(0, 4);
+  const rawWords = `${narration} ${prompt}`
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/);
+
+  const keywords: string[] = [];
+  for (const word of rawWords) {
+    if (word.length >= 4 && !stopWords.has(word) && !keywords.includes(word)) {
+      keywords.push(word);
+      if (keywords.length >= 4) break;
+    }
+  }
+
+  return keywords.length > 0 ? keywords : ['abstract', 'cinematic'];
 }
 
 export async function generateSceneImages(
   scenes: StoryboardScene[],
   jobId: string,
   fps = 30,
-  wordTimestamps: WordTimestamp[] = []
+  wordTimestamps: WordTimestamp[] = [],
+  forceRefresh = false
 ): Promise<GeneratedSceneAsset[]> {
   const outputDir = path.join(process.cwd(), 'data', 'assets', jobId, 'images');
   if (!fs.existsSync(outputDir)) {
@@ -39,8 +53,11 @@ export async function generateSceneImages(
   }
 
   const assets: GeneratedSceneAsset[] = [];
+  const totalAudioDuration = wordTimestamps.length > 0
+    ? wordTimestamps[wordTimestamps.length - 1].end
+    : 45;
+
   let currentTimestampIdx = 0;
-  const totalAudioDuration = wordTimestamps.length > 0 ? wordTimestamps[wordTimestamps.length - 1].end : 0;
 
   for (let i = 0; i < scenes.length; i++) {
     const scene = scenes[i];
@@ -50,7 +67,7 @@ export async function generateSceneImages(
     let sceneDurationSeconds = scene.duration_seconds || 4;
 
     if (wordTimestamps.length > 0) {
-      const sceneWords = scene.narration_segment.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 0);
+      const sceneWords = scene.narration_segment.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter((w: string) => w.length > 0);
       const startWordIdx = currentTimestampIdx;
       currentTimestampIdx = Math.min(wordTimestamps.length - 1, currentTimestampIdx + sceneWords.length);
 
@@ -63,6 +80,19 @@ export async function generateSceneImages(
     }
 
     const durationInFrames = Math.round(sceneDurationSeconds * fps);
+
+    // Check disk cache first unless forceRefresh is true
+    if (!forceRefresh && fs.existsSync(filePath) && fs.statSync(filePath).size > 100) {
+      console.log(`♻️ Reusing cached scene visual for Scene ${scene.scene_number} (${durationInFrames} frames) -> ${filePath}`);
+      assets.push({
+        sceneNumber: scene.scene_number,
+        imagePath: filePath,
+        durationInFrames,
+        zoomDirection: scene.scene_number % 2 === 0 ? 'in' : 'out',
+      });
+      continue;
+    }
+
     let generated = false;
 
     // 1. Primary: Try Imagen 3 AI Image Generator
@@ -119,98 +149,97 @@ export async function generateSceneImages(
 async function fetchContentMatchedImage(
   keywords: string[],
   sceneNumber: number,
-  outputPath: string
+  filePath: string
 ): Promise<boolean> {
-  const queryStr = keywords.join(' ') || 'cinematic portrait';
+  const query = encodeURIComponent(keywords.join(' '));
 
-  // Option A: Pexels API
-  if (ENV.PEXELS_API_KEY) {
+  // A. Pexels API
+  if (ENV.PEXELS_API_KEY && ENV.PEXELS_API_KEY !== 'your_pexels_api_key_here') {
     try {
-      const pexelsRes = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(queryStr)}&orientation=portrait&per_page=5`, {
+      const res = await fetch(`https://api.pexels.com/v1/search?query=${query}&orientation=portrait&per_page=5`, {
         headers: { Authorization: ENV.PEXELS_API_KEY },
       });
-      if (pexelsRes.ok) {
-        const data = (await pexelsRes.json()) as any;
+      if (res.ok) {
+        const data = (await res.json()) as any;
         if (data.photos && data.photos.length > 0) {
-          const photoUrl = data.photos[(sceneNumber - 1) % data.photos.length].src.portrait;
+          const photoUrl = data.photos[0].src.large2x || data.photos[0].src.large;
           const imgRes = await fetch(photoUrl);
           if (imgRes.ok) {
             const buffer = Buffer.from(await imgRes.arrayBuffer());
-            fs.writeFileSync(outputPath, buffer);
-            console.log(`📷 Content-Matched Pexels Visual for Scene ${sceneNumber} -> ${outputPath}`);
+            fs.writeFileSync(filePath, buffer);
+            console.log(`📷 Content-Matched Pexels Visual for Scene ${sceneNumber} -> ${filePath}`);
             return true;
           }
         }
       }
     } catch (e: any) {
-      console.warn(`⚠️ Pexels fetch warning: ${e.message}`);
+      console.warn(`⚠️ Pexels API failed: ${e.message}`);
     }
   }
 
-  // Option B: Unsplash API
-  if (ENV.UNSPLASH_ACCESS_KEY) {
+  // B. Unsplash API
+  if (ENV.UNSPLASH_ACCESS_KEY && ENV.UNSPLASH_ACCESS_KEY !== 'your_unsplash_access_key_here') {
     try {
-      const unsplashRes = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(queryStr)}&orientation=portrait&per_page=5`, {
+      const res = await fetch(`https://api.unsplash.com/search/photos?query=${query}&orientation=portrait&per_page=5`, {
         headers: { Authorization: `Client-ID ${ENV.UNSPLASH_ACCESS_KEY}` },
       });
-      if (unsplashRes.ok) {
-        const data = (await unsplashRes.json()) as any;
+      if (res.ok) {
+        const data = (await res.json()) as any;
         if (data.results && data.results.length > 0) {
-          const photoUrl = data.results[(sceneNumber - 1) % data.results.length].urls.regular;
+          const photoUrl = data.results[0].urls.regular;
           const imgRes = await fetch(photoUrl);
           if (imgRes.ok) {
             const buffer = Buffer.from(await imgRes.arrayBuffer());
-            fs.writeFileSync(outputPath, buffer);
-            console.log(`📷 Content-Matched Unsplash Visual for Scene ${sceneNumber} -> ${outputPath}`);
+            fs.writeFileSync(filePath, buffer);
+            console.log(`📷 Content-Matched Unsplash Visual for Scene ${sceneNumber} -> ${filePath}`);
             return true;
           }
         }
       }
     } catch (e: any) {
-      console.warn(`⚠️ Unsplash fetch warning: ${e.message}`);
+      console.warn(`⚠️ Unsplash API failed: ${e.message}`);
     }
   }
 
-  // Option C: Zero-Config Keyword Image Search Endpoint
+  // C. Unsplash Source Public Keyword Fallback
   try {
-    const zeroConfigUrl = `https://loremflickr.com/1080/1920/${encodeURIComponent(keywords.slice(0, 2).join(','))}`;
-    const imgRes = await fetch(zeroConfigUrl, { redirect: 'follow' });
+    const fallbackUrl = `https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1080&h=1920&q=80`;
+    const imgRes = await fetch(fallbackUrl);
     if (imgRes.ok) {
       const buffer = Buffer.from(await imgRes.arrayBuffer());
-      fs.writeFileSync(outputPath, buffer);
-      console.log(`📷 Content-Matched Keyword Visual for Scene ${sceneNumber} -> ${outputPath}`);
+      fs.writeFileSync(filePath, buffer);
+      console.log(`📷 Content-Matched Keyword Visual for Scene ${sceneNumber} -> ${filePath}`);
       return true;
     }
-  } catch (e: any) {
-    console.warn(`⚠️ Keyword image download warning: ${e.message}`);
-  }
+  } catch (e) {}
 
   return false;
 }
 
 function createFallbackGradientBackdrop(filePath: string, scene: StoryboardScene): void {
+  const gradients = [
+    { start: '#1e3c72', end: '#2a5298' },
+    { start: '#0f2027', end: '#2c5364' },
+    { start: '#373b44', end: '#4286f4' },
+    { start: '#11998e', end: '#38ef7d' },
+    { start: '#8e2de2', end: '#4a00e0' },
+  ];
+  const g = gradients[(scene.scene_number - 1) % gradients.length];
+
   const svgContent = `
-<svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <radialGradient id="bg" cx="50%" cy="40%" r="60%">
-      <stop offset="0%" stop-color="#1e293b" />
-      <stop offset="60%" stop-color="#0f172a" />
-      <stop offset="100%" stop-color="#020617" />
-    </radialGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="20" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-  </defs>
-  <rect width="1080" height="1920" fill="url(#bg)"/>
-  <circle cx="540" cy="700" r="350" fill="#38bdf8" opacity="0.12" filter="url(#glow)"/>
-  <circle cx="300" cy="1100" r="250" fill="#f59e0b" opacity="0.08" filter="url(#glow)"/>
-</svg>
+    <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${g.start}"/>
+          <stop offset="100%" stop-color="${g.end}"/>
+        </linearGradient>
+      </defs>
+      <rect width="1080" height="1920" fill="url(#bg)"/>
+      <circle cx="540" cy="960" r="300" fill="white" opacity="0.05"/>
+      <text x="540" y="960" font-family="sans-serif" font-size="42" font-weight="bold" fill="white" text-anchor="middle" opacity="0.8">Scene ${scene.scene_number}</text>
+    </svg>
   `.trim();
 
-  fs.writeFileSync(filePath, svgContent);
-  console.log(`🖼️ Created Atmospheric Gradient Backdrop for Scene ${scene.scene_number} -> ${filePath}`);
+  fs.writeFileSync(filePath, Buffer.from(svgContent));
+  console.log(`🎨 Gradient SVG Visual created for Scene ${scene.scene_number} -> ${filePath}`);
 }

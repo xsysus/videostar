@@ -5,7 +5,8 @@ import fs from 'fs';
 export async function generateThumbnail(
   prompt: string,
   overlayText: string,
-  jobId: string
+  jobId: string,
+  forceRefresh = false
 ): Promise<string> {
   const outputDir = path.join(process.cwd(), 'data', 'assets', jobId, 'thumbnails');
   if (!fs.existsSync(outputDir)) {
@@ -13,6 +14,11 @@ export async function generateThumbnail(
   }
 
   const thumbnailPath = path.join(outputDir, 'thumbnail.png');
+
+  if (!forceRefresh && fs.existsSync(thumbnailPath) && fs.statSync(thumbnailPath).size > 100) {
+    console.log(`♻️ Reusing cached thumbnail -> ${thumbnailPath}`);
+    return thumbnailPath;
+  }
 
   try {
     const ai = getGenAIClient();
