@@ -10,7 +10,7 @@ export function getGenAIClient(): GoogleGenAI {
 }
 
 export const GENAI_MODELS = {
-  TEXT_FLASH: 'gemini-2.0-flash',
-  TEXT_PRO: 'gemini-2.0-flash',
+  TEXT_FLASH: 'gemini-2.5-flash',
+  TEXT_PRO: 'gemini-2.5-flash',
   IMAGEN_3: 'imagen-3.0-generate-002',
 };
