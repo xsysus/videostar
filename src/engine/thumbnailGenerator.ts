@@ -26,7 +26,7 @@ export async function generateThumbnail(
       },
     });
 
-    if (response.generatedImages && response.generatedImages.length > 0) {
+    if (response.generatedImages && response.generatedImages.length > 0 && response.generatedImages[0].image?.imageBytes) {
       const imageBytes = response.generatedImages[0].image.imageBytes;
       const buffer = Buffer.from(imageBytes, 'base64');
       fs.writeFileSync(thumbnailPath, buffer);

@@ -1,7 +1,7 @@
 # Base Node image with Chromium for Remotion video rendering
 FROM node:20-slim
 
-# Install Chromium dependencies for Remotion headles rendering
+# Install Chromium dependencies for Remotion headless rendering
 RUN apt-get update && apt-get install -y \
     chromium \
     fonts-liberation \
@@ -54,7 +54,10 @@ RUN npm install
 # Copy application source code
 COPY . .
 
+# Build TypeScript
+RUN npm run build
+
 # Initialize Database & Expose Port
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "dist/server.js"]

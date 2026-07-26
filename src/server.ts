@@ -109,7 +109,7 @@ export function startServer() {
     }
 
     // 5. Dashboard UI HTML Page
-    if (pathname === '/' && method === 'GET') {
+    if (pathname === '/' && (method === 'GET' || method === 'HEAD')) {
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end(getDashboardHtml());
       return;
@@ -119,7 +119,7 @@ export function startServer() {
     res.end('Not Found');
   });
 
-  server.listen(PORT, () => {
+  server.listen(Number(PORT), '0.0.0.0', () => {
     console.log(`🚀 VideoStar Dashboard running at: http://localhost:${PORT}`);
   });
 }
@@ -255,6 +255,8 @@ function getDashboardHtml(): string {
   `;
 }
 
-if (require.main === module) {
+import { fileURLToPath } from 'url';
+
+if (process.argv[1] && process.argv[1] === fileURLToPath(import.meta.url)) {
   startServer();
 }

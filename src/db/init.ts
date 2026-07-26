@@ -205,6 +205,8 @@ export function initializeDatabase(): void {
   console.log(`✅ Database initialized successfully at: ${DB_PATH}`);
 }
 
-if (require.main === module) {
+import { fileURLToPath } from 'url';
+
+if (process.argv[1] && process.argv[1] === fileURLToPath(import.meta.url)) {
   initializeDatabase();
 }
