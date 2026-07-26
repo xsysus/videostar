@@ -1,12 +1,13 @@
 import http from 'http';
 import url from 'url';
+import crypto from 'crypto';
 import { getDatabase } from './db/init.js';
 import { NICHE_PORTFOLIO } from './config/niches.js';
-import crypto from 'crypto';
+import { ENV } from './config/env.js';
 
-const PORT = process.env.PORT || 3000;
+const PORT = ENV.PORT || 3000;
 
-export function startServer() {
+export function startServer(): void {
   const db = getDatabase();
 
   const server = http.createServer((req, res) => {
@@ -25,16 +26,30 @@ export function startServer() {
       return;
     }
 
-    // 1. API: Get pending topics
+    // 1. API: Get Candidate Topics
     if (pathname === '/api/topics' && method === 'GET') {
-      const status = parsedUrl.query.status || 'PENDING_APPROVAL';
-      const rows = db.prepare('SELECT * FROM topics WHERE status = ? ORDER BY virality_score DESC, created_at DESC').all(status);
+      const statusFilter = (parsedUrl.query.status as string) || 'PENDING_APPROVAL';
+      const topics = db.prepare('SELECT * FROM topics WHERE status = ? ORDER BY virality_score DESC').all(statusFilter);
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, topics: rows }));
+      res.end(JSON.stringify({ success: true, count: topics.length, topics }));
       return;
     }
 
-    // 2. API: Approve Topic
+    // 2. API: Trigger Scrape Trends across all niches
+    if (pathname === '/api/trends/scrape' && method === 'POST') {
+      import('./engine/viralityScorer.js').then(async m => {
+        for (const nicheId of Object.keys(NICHE_PORTFOLIO)) {
+          await m.processNicheTrends(nicheId).catch(() => {});
+        }
+      }).catch(err => console.error('Scraping error:', err));
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, message: 'Scraping fresh trends across subreddits...' }));
+      return;
+    }
+
+    // 3. API: Approve Topic & Start Video Production
     if (pathname.match(/^\/api\/topics\/[^\/]+\/approve$/) && method === 'POST') {
       const parts = pathname.split('/');
       const topicId = parts[3];
@@ -50,7 +65,6 @@ export function startServer() {
           VALUES (?, ?, ?, 'QUEUED')
         `).run(jobId, topicId, topic.niche);
 
-        // Trigger production pipeline in background
         import('./pipeline.js').then(m => m.processVideoJob(jobId)).catch(err => {
           console.error(`❌ Background video job ${jobId} failed:`, err);
         });
@@ -61,7 +75,7 @@ export function startServer() {
       return;
     }
 
-    // 3. API: Reject Topic
+    // 4. API: Reject Topic
     if (pathname.match(/^\/api\/topics\/[^\/]+\/reject$/) && method === 'POST') {
       const parts = pathname.split('/');
       const topicId = parts[3];
@@ -72,7 +86,7 @@ export function startServer() {
       return;
     }
 
-    // 4. API: Create Custom Topic
+    // 5. API: Create Custom Topic
     if (pathname === '/api/topics/custom' && method === 'POST') {
       let body = '';
       req.on('data', chunk => { body += chunk; });
@@ -98,6 +112,10 @@ export function startServer() {
             VALUES (?, ?, ?, 'QUEUED')
           `).run(jobId, topicId, niche);
 
+          import('./pipeline.js').then(m => m.processVideoJob(jobId)).catch(err => {
+            console.error(`❌ Background video job ${jobId} failed:`, err);
+          });
+
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, topicId, jobId }));
         } catch (e: any) {
@@ -108,7 +126,7 @@ export function startServer() {
       return;
     }
 
-    // 5. Dashboard UI HTML Page
+    // 6. Dashboard UI HTML Page
     if (pathname === '/' && (method === 'GET' || method === 'HEAD')) {
       res.writeHead(200, { 'Content-Type': 'text/html' });
       res.end(getDashboardHtml());
@@ -150,9 +168,14 @@ function getDashboardHtml(): string {
         <h1 class="text-3xl font-extrabold tracking-tight text-amber-400">🎬 VideoStar Control Center</h1>
         <p class="text-slate-400 text-sm mt-1">Human-in-the-Loop Topic Approvals & Production Pipeline</p>
       </div>
-      <button onclick="loadTopics()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-medium transition">
-        🔄 Refresh Topics
-      </button>
+      <div class="flex items-center gap-3">
+        <button onclick="triggerScrape()" id="scrapeBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-bold text-white transition flex items-center gap-2">
+          ⚡ Scrape Fresh Trends
+        </button>
+        <button onclick="loadTopics()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-medium transition">
+          🔄 Refresh Topics
+        </button>
+      </div>
     </div>
 
     <!-- Custom Topic Form -->
@@ -183,6 +206,23 @@ function getDashboardHtml(): string {
   </div>
 
   <script>
+    async function triggerScrape() {
+      const btn = document.getElementById('scrapeBtn');
+      btn.disabled = true;
+      btn.innerText = '⏳ Scraping Trends...';
+      try {
+        await fetch('/api/trends/scrape', { method: 'POST' });
+        setTimeout(() => {
+          loadTopics();
+          btn.disabled = false;
+          btn.innerText = '⚡ Scrape Fresh Trends';
+        }, 4000);
+      } catch(e) {
+        btn.disabled = false;
+        btn.innerText = '⚡ Scrape Fresh Trends';
+      }
+    }
+
     async function loadTopics() {
       const res = await fetch('/api/topics?status=PENDING_APPROVAL');
       const data = await res.json();
@@ -190,7 +230,7 @@ function getDashboardHtml(): string {
 
       if (!data.topics || data.topics.length === 0) {
         container.innerHTML = \`<div class="p-8 bg-slate-900 rounded-xl text-center text-slate-500 border border-slate-800">
-          No pending topic proposals right now. Check back soon or submit a custom topic above!
+          No pending topic proposals right now. Click "⚡ Scrape Fresh Trends" or submit a custom topic above!
         </div>\`;
         return;
       }
